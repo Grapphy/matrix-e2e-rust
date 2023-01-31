@@ -1,8 +1,12 @@
+use crate::crypto::{DeviceKey, OneTimeKey};
 use crate::error::Error;
-use crate::payload::{LoginIdentifierSP, LoginPayload};
-use crate::response::{ErrorResponse, LoginResponse};
+use crate::payload::{KeyPublishPayload, LoginIdentifierSP, LoginPayload};
+use crate::response::{ErrorResponse, KeyUploadResponse, LoginResponse};
+
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
+
+use std::collections::HashMap;
 
 pub struct Route {
     method: reqwest::Method,
@@ -32,7 +36,10 @@ impl Route {
 impl HTTPBackend {
     pub fn new(homeserver_uri: String, access_token: String) -> Self {
         HTTPBackend {
-            http_client: reqwest::Client::new(),
+            http_client: reqwest::Client::builder()
+                .proxy(reqwest::Proxy::https("http://127.0.0.1:8080").unwrap())
+                .build()
+                .unwrap(),
             homeserver_uri: homeserver_uri,
             access_token: access_token,
         }
@@ -45,7 +52,17 @@ impl HTTPBackend {
     ) -> Result<D, Error> {
         let method = route.method;
         let url = format!("{}{}", self.homeserver_uri, route.path);
-        let mut request = self.http_client.request(method.clone(), url);
+        let mut request = self
+            .http_client
+            .request(method.clone(), url)
+            .header(
+                reqwest::header::USER_AGENT,
+                "Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2; Trident/6.0; Touch)",
+            )
+            .header(
+                reqwest::header::AUTHORIZATION,
+                format!("Bearer {}", self.access_token),
+            );
 
         if method == reqwest::Method::POST || method == reqwest::Method::PUT {
             request = request.json(&data);
@@ -58,6 +75,23 @@ impl HTTPBackend {
         }
         let ejson = response.json::<ErrorResponse>().await?;
         Err(Error::ApiError(ejson.error))
+    }
+
+    pub async fn send_keys(
+        &self,
+        device_keys: DeviceKey,
+        one_time_keys: HashMap<String, OneTimeKey>,
+    ) -> Result<KeyUploadResponse, Error> {
+        let response: KeyUploadResponse = self
+            .request(
+                Route::new("POST", "/_matrix/client/r0/keys/upload"),
+                Some(KeyPublishPayload {
+                    device_keys: device_keys,
+                    one_time_keys: one_time_keys,
+                }),
+            )
+            .await?;
+        Ok(response)
     }
 
     pub async fn raw_login(
