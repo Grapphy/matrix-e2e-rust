@@ -19,3 +19,8 @@ pub struct KeyPublishPayload {
     pub device_keys: crate::crypto::DeviceKey,
     pub one_time_keys: HashMap<String, crate::crypto::OneTimeKey>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct RequestDeviceKeyPayload {
+    pub device_keys: HashMap<String, Vec<String>>,
+}
