@@ -1,7 +1,7 @@
 use crate::crypto::{DeviceKey, OneTimeKey};
 use crate::error::Error;
-use crate::payload::{KeyPublishPayload, LoginIdentifierSP, LoginPayload};
-use crate::response::{ErrorResponse, KeyUploadResponse, LoginResponse};
+use crate::payload::{KeyPublishPayload, LoginIdentifierSP, LoginPayload, RequestDeviceKeyPayload};
+use crate::response::{ErrorResponse, KeyUploadResponse, LoginResponse, RequestDeviceKeyResponse};
 
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -88,6 +88,18 @@ impl HTTPBackend {
                 Some(KeyPublishPayload {
                     device_keys: device_keys,
                     one_time_keys: one_time_keys,
+                }),
+            )
+            .await?;
+        Ok(response)
+    }
+
+    pub async fn query_keys(&self, user_id: String) -> Result<RequestDeviceKeyResponse, Error> {
+        let response: RequestDeviceKeyResponse = self
+            .request(
+                Route::new("POST", "/_matrix/client/r0/keys/query"),
+                Some(RequestDeviceKeyPayload {
+                    device_keys: HashMap::from([(user_id, Vec::new())]),
                 }),
             )
             .await?;
