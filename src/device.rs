@@ -82,6 +82,6 @@ impl Device {
             .backend_api
             .send_keys(device_key, one_time_keys)
             .await?;
-        Ok(response.one_time_key_counts)
+        Ok(response.one_time_key_counts.signed_curve25519.unwrap_or(0))
     }
 }
