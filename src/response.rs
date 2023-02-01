@@ -15,5 +15,11 @@ pub struct LoginResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct KeyUploadResponse {
-    pub one_time_key_counts: i16,
+    pub one_time_key_counts: OneTimeKeyCounts,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OneTimeKeyCounts {
+    pub signed_curve25519: Option<i16>,
+    pub curve25519: Option<i16>,
 }
