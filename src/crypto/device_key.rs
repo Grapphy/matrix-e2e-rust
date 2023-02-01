@@ -38,7 +38,7 @@ impl DeviceKey {
     }
 
     pub fn sign(mut self, olm: &vodozemac::olm::Account) -> Self {
-        let signature = olm.sign(&serde_json::to_string(&self).unwrap());
+        let signature = olm.sign(&cjson::to_string(&self).unwrap());
 
         let mut signed_map = HashMap::new();
         signed_map.insert(
