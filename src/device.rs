@@ -2,6 +2,7 @@ use crate::crypto::{DeviceKey, OneTimeKey};
 use crate::error::Error;
 use crate::http::HTTPBackend;
 use std::collections::HashMap;
+use vodozemac::megolm;
 use vodozemac::olm;
 
 pub struct Device {
@@ -11,6 +12,7 @@ pub struct Device {
     pub homeserver_uri: String,
     pub backend_api: HTTPBackend,
     olm_account: olm::Account,
+    megolm_sessions: HashMap<String, megolm::GroupSession>,
 }
 
 impl Device {
@@ -29,6 +31,7 @@ impl Device {
             homeserver_uri: homeserver_uri.clone(),
             backend_api: HTTPBackend::new(homeserver_uri, access_token),
             olm_account: olm_account,
+            megolm_sessions: HashMap::new(),
         }
     }
 
@@ -83,5 +86,19 @@ impl Device {
             .send_keys(device_key, one_time_keys)
             .await?;
         Ok(response.one_time_key_counts.signed_curve25519.unwrap_or(0))
+    }
+
+    pub async fn send_encrypted_message(room_id: &str, content: &str) -> Result<bool, Error> {
+        Ok(true)
+    }
+
+    async fn being_olm_session(
+        &self,
+        room_id: String,
+        recipient_device: DeviceKey,
+    ) -> Result<vodozemac::megolm::GroupSession, Error> {
+        let outbound_group_session = megolm::GroupSession::new(megolm::SessionConfig::version_1());
+
+        Ok(outbound_group_session)
     }
 }
