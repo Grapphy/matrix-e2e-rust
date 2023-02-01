@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 
 #[derive(Debug, Deserialize)]
 pub struct ErrorResponse {
@@ -22,4 +23,9 @@ pub struct KeyUploadResponse {
 pub struct OneTimeKeyCounts {
     pub signed_curve25519: Option<i16>,
     pub curve25519: Option<i16>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RequestDeviceKeyResponse {
+    pub device_keys: HashMap<String, HashMap<String, crate::crypto::DeviceKey>>,
 }
