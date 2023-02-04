@@ -29,10 +29,10 @@ pub struct PlainTextMessage {
 }
 
 impl MegolmSession {
-    pub fn new(room_id: String) -> Self {
+    pub fn new(room_id: String, ratchet: megolm::GroupSession) -> Self {
         MegolmSession {
             room_id: room_id,
-            ratchet: megolm::GroupSession::new(megolm::SessionConfig::version_1()),
+            ratchet: ratchet,
         }
     }
 
