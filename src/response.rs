@@ -29,3 +29,8 @@ pub struct OneTimeKeyCounts {
 pub struct RequestDeviceKeyResponse {
     pub device_keys: HashMap<String, HashMap<String, crate::crypto::DeviceKey>>,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ClaimOTKResponse {
+    pub one_time_keys: HashMap<String, HashMap<String, HashMap<String, crate::crypto::OneTimeKey>>>,
+}
