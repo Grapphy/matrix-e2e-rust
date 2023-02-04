@@ -24,3 +24,13 @@ pub struct KeyPublishPayload {
 pub struct RequestDeviceKeyPayload {
     pub device_keys: HashMap<String, Vec<String>>,
 }
+
+#[derive(Debug, Serialize)]
+pub struct RequestOTKPayload {
+    pub one_time_keys: HashMap<String, HashMap<String, String>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct OLMExchangePayload {
+    pub messages: HashMap<String, HashMap<String, crate::crypto::OlmExchange>>,
+}
