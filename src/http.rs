@@ -1,7 +1,12 @@
-use crate::crypto::{DeviceKey, OneTimeKey};
+use crate::crypto::{DeviceKey, MegolmMessage, OneTimeKey};
 use crate::error::Error;
-use crate::payload::{KeyPublishPayload, LoginIdentifierSP, LoginPayload, RequestDeviceKeyPayload};
-use crate::response::{ErrorResponse, KeyUploadResponse, LoginResponse, RequestDeviceKeyResponse};
+use crate::payload::{
+    KeyPublishPayload, LoginIdentifierSP, LoginPayload, OLMExchangePayload,
+    RequestDeviceKeyPayload, RequestOTKPayload,
+};
+use crate::response::{
+    ClaimOTKResponse, ErrorResponse, KeyUploadResponse, LoginResponse, RequestDeviceKeyResponse,
+};
 
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
@@ -104,6 +109,68 @@ impl HTTPBackend {
             )
             .await?;
         Ok(response)
+    }
+
+    pub async fn claim_otk(
+        &self,
+        user_id: String,
+        recipient_device_id: String,
+    ) -> Result<ClaimOTKResponse, Error> {
+        let response: ClaimOTKResponse = self
+            .request(
+                Route::new("POST", "/_matrix/client/r0/keys/claim"),
+                Some(RequestOTKPayload {
+                    one_time_keys: HashMap::from([(
+                        user_id,
+                        HashMap::from([(recipient_device_id, String::from("signed_curve25519"))]),
+                    )]),
+                }),
+            )
+            .await?;
+        Ok(response)
+    }
+
+    pub async fn send_olm(
+        &self,
+        user_id: String,
+        recipient_device_id: String,
+        olm_exchange_payload: crate::crypto::OlmExchange,
+    ) -> Result<(), Error> {
+        let response: HashMap<i8, i8> = self
+            .request(
+                Route::new(
+                    "PUT",
+                    &format!(
+                        "/_matrix/client/r0/sendToDevice/m.room.encrypted/{}",
+                        uuid::Uuid::new_v4().to_string()
+                    ),
+                ),
+                Some(OLMExchangePayload {
+                    messages: HashMap::from([(
+                        user_id,
+                        HashMap::from([(recipient_device_id, olm_exchange_payload)]),
+                    )]),
+                }),
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn send_message(&self, room_id: String, message: MegolmMessage) -> Result<(), Error> {
+        let response: HashMap<String, String> = self
+            .request(
+                Route::new(
+                    "PUT",
+                    &format!(
+                        "/_matrix/client/r0/rooms/{}/send/m.room.encrypted/{}",
+                        room_id,
+                        uuid::Uuid::new_v4().to_string()
+                    ),
+                ),
+                Some(message),
+            )
+            .await?;
+        Ok(())
     }
 
     pub async fn raw_login(
