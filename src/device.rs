@@ -1,4 +1,4 @@
-use crate::crypto::{DeviceKey, OneTimeKey};
+use crate::crypto::{DeviceKey, MegolmSession, OlmExchange, OneTimeKey};
 use crate::error::Error;
 use crate::http::HTTPBackend;
 use std::collections::HashMap;
@@ -88,17 +88,86 @@ impl Device {
         Ok(response.one_time_key_counts.signed_curve25519.unwrap_or(0))
     }
 
-    pub async fn send_encrypted_message(room_id: &str, content: &str) -> Result<bool, Error> {
+    pub async fn create_megolm_session(
+        &self,
+        room_id: String,
+        user_id: String,
+        recipient_device_id: String,
+    ) -> Result<MegolmSession, Error> {
+        let queried_keys = self.backend_api.query_keys(user_id.clone()).await?;
+        let recipient_device: &DeviceKey =
+            &queried_keys.device_keys[&user_id][&recipient_device_id];
+
+        let claimed_otks = self
+            .backend_api
+            .claim_otk(user_id.clone(), recipient_device_id.clone())
+            .await?;
+        let user_otk = claimed_otks.one_time_keys[&user_id][&recipient_device_id]
+            .values()
+            .last()
+            .unwrap()
+            .curve25519_key
+            .clone();
+
+        let outbound_group_session = self
+            .create_olm_exchange(recipient_device, user_otk, room_id.clone())
+            .await?;
+        Ok(MegolmSession::new(room_id, outbound_group_session))
+    }
+
+    pub async fn send_encrypted_message(
+        &self,
+        megolm_session: &mut MegolmSession,
+        content: &str,
+    ) -> Result<bool, Error> {
+        let message =
+            megolm_session.create_message(self.curve25519_key(), self.device_id.clone(), content);
+
+        self.backend_api
+            .send_message(megolm_session.room_id.clone(), message)
+            .await?;
+
         Ok(true)
     }
 
-    async fn being_olm_session(
+    async fn create_olm_exchange(
         &self,
+        recipient_device: &DeviceKey,
+        user_otk: String,
         room_id: String,
-        recipient_device: DeviceKey,
-    ) -> Result<vodozemac::megolm::GroupSession, Error> {
+    ) -> Result<megolm::GroupSession, Error> {
         let outbound_group_session = megolm::GroupSession::new(megolm::SessionConfig::version_1());
 
+        let recipient_curve25519 = vodozemac::Curve25519PublicKey::from_base64(
+            recipient_device.keys[format!("curve25519:{}", recipient_device.device_id)]
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap();
+
+        let recipient_otk = vodozemac::Curve25519PublicKey::from_base64(&user_otk).unwrap();
+
+        let mut outbound_olm_session = self.olm_account.create_outbound_session(
+            olm::SessionConfig::version_1(),
+            recipient_curve25519,
+            recipient_otk,
+        );
+
+        let olm_exchange_payload = OlmExchange::new(
+            self,
+            recipient_device,
+            &outbound_group_session,
+            &mut outbound_olm_session,
+            room_id,
+        );
+
+        self.backend_api
+            .send_olm(
+                recipient_device.user_id.clone(),
+                recipient_device.device_id.clone(),
+                olm_exchange_payload,
+            )
+            .await?;
         Ok(outbound_group_session)
     }
 }
